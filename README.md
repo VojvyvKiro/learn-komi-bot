@@ -17,7 +17,7 @@ Welcome to the Komi Language Learning Bot repository! This bot is designed to he
 - Python 3.x
 - Telegram Bot API Token
 
-##
+## Links
 
 - Bot link: [https://web.telegram.org/k/#@learnkomibot]
 - Author: [https://web.telegram.org/k/#@shankaga]
