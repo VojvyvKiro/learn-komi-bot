@@ -14,7 +14,7 @@ import string
 API_TOKEN = 'token' #Insert your folder location here
 VOICE_LESSONS_PATH = 'voice_lessons' #Insert your folder location here
 SUBSCRIBED_USERS_FILE = "subscribed_users.json"
-WORDS_BASE_PATH = "База слов. Коми.xlsx" #Insert your file location here
+WORDS_BASE_PATH = "Word_base.Komi.xlsx" #Insert your file location here
 SCORES_FILE = "scores.json"
 
 bot = TeleBot(API_TOKEN)
