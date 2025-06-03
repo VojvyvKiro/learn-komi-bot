@@ -33,5 +33,5 @@ pip install pyTelegramBotAPI apscheduler pandas
 
 ## 📎Links
 
-- Bot link: https://t.me/learnkomibot
+- Bot: https://t.me/learnkomibot
 - Author: https://t.me/shankaga
