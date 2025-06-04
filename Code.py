@@ -789,7 +789,7 @@ def help_command(message):
 def send_random_lesson(chat_id):
     lesson_index = random.randint(0, len(lessons) - 1)
     bot.send_message(chat_id, lessons[lesson_index])
-    voice_file = f"lesson{lesson_index + 1}.ogg"
+    voice_file = f"{lesson_index + 1}.ogg"
     voice_path = os.path.join(AUDIO_PATH, voice_file)
     if os.path.exists(voice_path):
         try:
