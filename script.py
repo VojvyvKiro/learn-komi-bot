@@ -11,8 +11,8 @@ import pandas as pd
 import re
 import string
 
-API_TOKEN = '7752576803:AAGAi4KkpY7lwu2Vnac2cCFUX9xFG5aJ4Mo'
-AUDIO_PATH = "/home/kirill/LearningKomiBot/voice_lessons"
+API_TOKEN = ''
+AUDIO_PATH = ""
 SUBSCRIBED_USERS_FILE = "subscribed_users.json"
 UNITS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUS3NpoMDo8CSULPn3cBm12wYX1p-8yAWzZaYizQn3G_F7-_Zpd5EduOiQFe9-1vqMQiA9JHgzsJPC/pub?gid=0&single=true&output=csv"
 GROUPS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUS3NpoMDo8CSULPn3cBm12wYX1p-8yAWzZaYizQn3G_F7-_Zpd5EduOiQFe9-1vqMQiA9JHgzsJPC/pub?gid=1530881854&single=true&output=csv"
