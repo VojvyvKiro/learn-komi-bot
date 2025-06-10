@@ -793,7 +793,7 @@ def schedule_user_job(user_id):
     remove_user_job(user_id)
     if user_id not in auto_subscribed_users:
         return
-    time_str = user_times.get(user_id, "09:00")
+    time_str = user_times.get(user_id, "12:00")
     hour, minute = map(int, time_str.split(":"))
     job_id = f"lesson_{user_id}"
     scheduler.add_job(
@@ -837,6 +837,13 @@ def reset_quiz(message):
 @bot.message_handler(func=lambda message: message.text == "В меню")
 def back_to_menu(message):
     start(message)
+    
+for user_id in subscribed_users:
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("📘Урок")
+    kb.add("✅Начать квиз", "🎧Диктант", "🔤 Собери слово")
+    kb.add("📊 Рейтинг", "⚙️Настройки")
+    bot.send_message(user_id, "🚀 Выльмӧдӧм! Обновление!\n\n - Обновлено меню\n - Исправлены ошибки\n - Добавлены новые команды\n - Добавлена возможность создавать ежедневную рассылку с регулированием времени в настройках", reply_markup=kb)
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
