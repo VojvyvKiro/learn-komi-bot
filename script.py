@@ -11,8 +11,8 @@ import pandas as pd
 import re
 import string
 
-API_TOKEN = ''
-AUDIO_PATH = ""
+API_TOKEN = 'token' #Insert your token here
+AUDIO_PATH = "voice_lessons" #Insert your folder location here
 SUBSCRIBED_USERS_FILE = "subscribed_users.json"
 UNITS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUS3NpoMDo8CSULPn3cBm12wYX1p-8yAWzZaYizQn3G_F7-_Zpd5EduOiQFe9-1vqMQiA9JHgzsJPC/pub?gid=0&single=true&output=csv"
 GROUPS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUS3NpoMDo8CSULPn3cBm12wYX1p-8yAWzZaYizQn3G_F7-_Zpd5EduOiQFe9-1vqMQiA9JHgzsJPC/pub?gid=1530881854&single=true&output=csv"
@@ -25,7 +25,7 @@ df_groups = pd.read_csv(GROUPS)
 auto_lessons_ids = []
 group_id_to_name = {row['group_id']: row['name_ru'] for _, row in df_groups.iterrows()}
 
-# Dictionaries to track user progress
+# Dictionaries to track user progressсс
 current_lesson_index = {}
 current_quiz_index = {}
 active_quizzes = {}
@@ -334,6 +334,20 @@ for i in range(len(audio_ids)):
         "audio_id": audio_ids[i]
     })
 
+@bot.message_handler(func=lambda m: m.text == "🎧Диктант")
+def start_dictant(message):
+    user_id = message.from_user.id
+    register_user(message.chat.id)
+    indices = list(range(len(all_lessons_info)))
+    random.shuffle(indices)
+    dictant_state[user_id] = {
+        'indices': indices,
+        'current': 0,
+        'correct': 0,
+        'waiting_answer': False
+    }
+    send_next_dictant(message.chat.id, user_id)
+
 def send_next_dictant(chat_id, user_id):
     state = dictant_state.get(user_id)
     if not state:
@@ -347,27 +361,29 @@ def send_next_dictant(chat_id, user_id):
             'waiting_answer': False
         }
         state = dictant_state[user_id]
-    if state['current'] >= len(state['indices']):
-        score = state['correct']
-        dictant_state.pop(user_id, None)
-        kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        kb.add("В меню")
-        bot.send_message(chat_id, f"Диктант окончен! Вы правильно написали {score} из {len(state['indices'])} фраз.", reply_markup=kb)
-        return
+    while state['current'] < len(state['indices']):
+        idx = state['indices'][state['current']]
+        komi, translation, audio_id = dictant_phrases[idx]
+        voice_path = os.path.join(AUDIO_PATH, f"{audio_id}.ogg")
+        if os.path.exists(voice_path):
+            kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            kb.add("В меню")
+            caption = f"Диктант {state['current']+1}.\nВведи услышанное предложение:"
+            with open(voice_path, 'rb') as audio:
+                bot.send_voice(chat_id, audio, caption=caption, reply_markup=kb)
+            state['answer'] = komi
+            state['waiting_answer'] = True
+            return
+        else:
+            # Если аудио нет, просто переходим к следующему слову
+            state['current'] += 1
 
-    idx = state['indices'][state['current']]
-    komi, translation, audio_id = dictant_phrases[idx]
+    # Если все фразы закончились или не осталось с аудио
+    score = state['correct']
+    dictant_state.pop(user_id, None)
     kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     kb.add("В меню")
-    caption = f"Диктант {state['current']+1}.\nВведи услышанное предложение:"
-    voice_path = os.path.join(AUDIO_PATH, f"{audio_id}.ogg")
-    if os.path.exists(voice_path):
-        with open(voice_path, 'rb') as audio:
-            bot.send_voice(chat_id, audio, caption=caption, reply_markup=kb)
-    else:
-        bot.send_message(chat_id, f"{caption}\n(Аудио не найдено)", reply_markup=kb)
-    state['answer'] = komi
-    state['waiting_answer'] = True
+    bot.send_message(chat_id, f"Диктант окончен! Вы правильно написали {score} из {len(state['indices'])} фраз.", reply_markup=kb)
 
 # Собираем автоуроки
 for i in range(len(auto_lessons)):
@@ -415,8 +431,8 @@ def scramble_answer(message):
         user_norm = normalize_text(message.text)
         answer_norm = normalize_text(state['answer'])
         warn = ""
-        if contains_latin_oi(text):
-            warn = "\n⚠️ Похоже, вы используете латинские буквы Ö или I вместо кириллических Ӧ или І. Подробнее о коми-раскладке: http://wiki.fu-lab.ru/index.php/Коми_раскладка_клавиатуры"
+        if contains_latin_oi(message.text):
+            warn = "\n⚠️ Похоже, вы используете латинские буквы Ö или i вместо кириллических. Подробнее о коми-раскладке: http://wiki.fu-lab.ru/index.php/Коми_раскладка_клавиатуры"
         idx = state['indices'][state['current']]
         word, _ = filtered_words[idx]
         translation = find_translation(word)
@@ -454,7 +470,7 @@ def dictant_answer(message):
         user_norm = normalize_text(message.text)
         answer_norm = normalize_text(state['answer'])
         warn = ""
-        if contains_latin_oi(text):
+        if contains_latin_oi(message.text):
             warn = "\n⚠️ Похоже, вы используете латинские буквы Ö или I вместо кириллических Ӧ или І. Подробнее о коми-раскладке: http://wiki.fu-lab.ru/index.php/Коми_раскладка_клавиатуры"
         komi_text = state['answer']
         translation = find_translation(komi_text)
@@ -475,7 +491,7 @@ def dictant_answer(message):
             )
     state['current'] += 1
     state['waiting_answer'] = False
-    send_next_dictant(chat.id, user_id)
+    send_next_dictant(message.chat.id, user_id)
 
 def save_lesson_progress():
     with open(LESSON_PROGRESS_FILE, 'w') as f:
@@ -511,53 +527,6 @@ def normalize_text(text):
 def normalize_phrase(text):
     table = str.maketrans('', '', string.punctuation + '«»—…–‐‑“”’‘!?.,:;–—()[]{}"\'')
     return text.lower().translate(table).replace("ё", "е").replace(" ", "").strip()
-
-def find_translation(komi_text):
-    norm_komi = normalize_text(komi_text)
-    # 1. Поиск в filtered_words
-    for w, t in filtered_words:
-        if normalize_text(w) == norm_komi:
-            return t
-    # 2. Поиск в all_lessons_info + df_units
-    for row in df_units.itertuples():
-        if normalize_text(str(row.value)) == norm_komi:
-            return str(row.translate_ru)
-    return None
-
-def send_next_dictant(chat_id, user_id):
-    state = dictant_state.get(user_id)
-    if not state:
-        # Новый раунд: случайный порядок фраз
-        indices = list(range(len(dictant_phrases)))
-        random.shuffle(indices)
-        dictant_state[user_id] = {
-            'indices': indices,
-            'current': 0,
-            'correct': 0,
-            'waiting_answer': False
-        }
-        state = dictant_state[user_id]
-    if state['current'] >= len(state['indices']):
-        score = state['correct']
-        dictant_state.pop(user_id, None)
-        kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        kb.add("В меню")
-        bot.send_message(chat_id, f"Диктант окончен! Вы правильно написали {score} из {len(state['indices'])} фраз.", reply_markup=kb)
-        return
-
-    idx = state['indices'][state['current']]
-    komi, translation, audio_id = dictant_phrases[idx]
-    kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    kb.add("В меню")
-    caption = f"Диктант {state['current']+1}.\nВведи услышанное предложение:"
-    voice_path = os.path.join(AUDIO_PATH, f"{audio_id}.ogg")
-    if os.path.exists(voice_path):
-        with open(voice_path, 'rb') as audio:
-            bot.send_voice(chat_id, audio, caption=caption, reply_markup=kb)
-    else:
-        bot.send_message(chat_id, f"{caption}\n(Аудио не найдено)", reply_markup=kb)
-    state['answer'] = komi
-    state['waiting_answer'] = True
 
 # --- NEW: Progress persistence ---
 LESSON_PROGRESS_FILE = "lesson_progress.json"
@@ -596,7 +565,7 @@ def start(message):
     keyboard.add("📘Урок")
     keyboard.add("✅Начать квиз", "🎧Диктант", "🔤 Собери слово")
     keyboard.add("📊 Рейтинг", "⚙️Настройки")
-    bot.send_message(message.chat.id, "Чолӧм👋, я бот для изучения коми языка! Выберите действие:", reply_markup=keyboard)
+    bot.send_message(message.chat.id, "Чолӧм👋 я бот для изучения коми языка! Выберите действие:", reply_markup=keyboard)
 
 # Кнопка "Собери слово" вызывает scramble-режим
 @bot.message_handler(func=lambda message: message.text == "🔤 Собери слово")
@@ -712,13 +681,9 @@ def handle_poll_answer(poll_answer):
 def settings_menu(message):
     user_id = message.from_user.id
     is_on = user_id in auto_subscribed_users
-    time_str = user_times.get(user_id, '09:00')
+    time_str = user_times.get(user_id, '11:30')
     text = (
-        "⚙️ <b>Настройки</b>\n\n"
-        "⏲️ <b>Рассылка уроков</b> — ежедневно в выбранное время бот будет присылать случайный урок с аудио.\n"
-        f"Статус: {'<b>Включена</b>' if is_on else '<b>Выключена</b>'}\n"
-        f"Время: <b>{time_str}</b>\n\n"
-        "Выберите действие:"
+        "🤖 Это бот для изучения коми языка. Вот что умеют кнопки в меню:\n\n\n📘Урок - Изучить уроки\n\n✅ Начать квиз - проверить знания в формате теста\n\n🎧 Диктант - прослушать аудио и написать услышанную фразу\n\n🔤 Собери слово - игра на составление слов из перемешанных букв\n\n⚙️ Настройки - показать это сообщение и открыть настройки\n\nТакже в боте есть команды:\n\n/start - открыть главное меню\n/lesson {Номер урока} - открыть урок по номеру\n/resetquiz - начать прохождение квизов с начала\n\n\nКаждый урок содержит фразу на коми языке с переводом и аудио произношением.\nУчитесь, практикуйтесь и наслаждайтесь процессом! 😊\n\nМожете выбрать действие:"
     )
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("⏲️Рассылка", "В меню")
@@ -731,14 +696,20 @@ def mailing_settings(message):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if is_on:
         kb.add("Включить ✔️", "Выключить", "В меню")
+        time_str = user_times.get(user_id, '09:00')
+        text = (
+            "⏲️ <b>Настройка рассылки</b>\n\n"
+            f"Статус: <b>Включена</b>\n"
+            f"Время: <b>{time_str}</b>\n\n"
+            f"Если хотите сменить время, нажмите снова '<b>Включить</b>':"
+        )
     else:
         kb.add("Включить", "Выключить ✔️", "В меню")
-    text = (
-        "⏲️ <b>Настройка рассылки</b>\n\n"
-        f"Статус: {'<b>Включена</b>' if is_on else '<b>Выключена</b>'}\n"
-        f"Время: <b>{user_times.get(user_id, '09:00')}</b>\n\n"
-        "Выберите, включить или выключить рассылку."
-    )
+        text = (
+            "⏲️ <b>Настройка рассылки</b>\n\n"
+            "Статус: <b>Выключена</b>\n\n"
+            "Выберите действие:"
+        )
     bot.send_message(message.chat.id, text, reply_markup=kb, parse_mode="HTML")
 
 @bot.message_handler(func=lambda message: message.text in ["Включить", "Включить ✔️"])
@@ -784,7 +755,7 @@ def mailing_set_time(message):
     kb.add("В меню")
     bot.send_message(message.chat.id, f"Время рассылки установлено на {hour:02d}:{minute:02d}.", reply_markup=kb)
 
-@bot.message_handler(func=lambda message: message.text == "⚙️Помощь")
+@bot.message_handler(func=lambda message: message.text == "⚙️Настройки")
 def help_command(message):
     settings_menu(message)
 
@@ -863,6 +834,9 @@ def reset_quiz(message):
     save_quiz_progress()
     bot.send_message(message.chat.id, "Прогресс по квизу сброшен. Баллы за уже правильно решённые вопросы больше не начисляются, а за те, что были ошибочны — начисляются при повторном прохождении.")
 
+@bot.message_handler(func=lambda message: message.text == "В меню")
+def back_to_menu(message):
+    start(message)
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
